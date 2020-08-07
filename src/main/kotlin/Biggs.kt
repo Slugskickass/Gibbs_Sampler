@@ -1,16 +1,10 @@
-import javafx.scene.chart.Chart
-import javafx.scene.layout.VBox
-import kotlin.math.ln
-import kotlin.math.pow
 import org.apache.commons.math3.distribution.BinomialDistribution
 import org.apache.commons.math3.distribution.BetaDistribution
 import org.apache.commons.math3.distribution.NormalDistribution
 import org.apache.commons.math3.distribution.GammaDistribution
 import org.apache.commons.math3.stat.StatUtils
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
-import kotlin.math.sqrt
-import kotlin.math.exp
-import kotlin.math.round
+import kotlin.math.*
 
 
 fun nmean(Ds: DoubleArray, Dn: DoubleArray, cls: Double, cln: Double, ns: Int, nn: Int, pms: Pair<Int, Int>, pmn: Pair<Int, Int>): Pair<Double, Double> {
@@ -160,8 +154,9 @@ fun testarray(arraysee: DoubleArray, times: Int){
     println()
 }
 
-fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn:Pair<Int, Int>, pls: Pair<Double, Double>, pln: Pair<Double, Double>, pp: Pair<Double, Double>): Double {
+fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn: Pair<Int, Int>, pls: Pair<Double, Double>, pln: Pair<Double, Double>, pp: Pair<Double, Double>): Biggs {
     val N = X.size
+    val data1 = Biggs("Miguel", N)
     var Ms = DoubleArray(N)
     var Mn = DoubleArray(N)
     var Ls = DoubleArray(N)
@@ -186,7 +181,7 @@ fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn:Pair<Int, Int>, pls: 
     val cPG = BetaDistribution(Ns + pp.first, Nn + pp.second)
 
 
-    for (i in 0 until M) {
+    for (I in 0 until M) {
 
         val cp = cPG.sample()
         val CD = nmean(cuS, cuN, cls, cln, Ns, Nn, pms, pmn)
@@ -202,49 +197,45 @@ fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn:Pair<Int, Int>, pls: 
 
 
 //        val pi = 1 + ((1 - cp) / cp * exp(aux))
-//            pi = 1 + ((1 - cP) / cP * np.exp(aux))
 
-        val testera = aux.filter { it > 4000 }
- //       println(testera.size)
-   //     testarray(aux, 10)
-
-        var pie =DoubleArray(aux.size)
-        var counter = 0
-        //aux.forEach {pie[counter] = 1 + ((1 - cp) / (cp * exp(it)))
-        aux.forEach {pie[counter] = exp(it)
-            counter =+1
-            if (it > 4000){
-                println(it)
-                println(exp(it))
-            }
-        }
-
-        pie.forEach { if (it.isInfinite()){print('I')} }
-
-        val testerp = pie.filter { it.isInfinite() }
-        println(testerp.size)
+        val pi = aux.map { 1 + ((1 - cp) / (cp * exp(it))) }.toDoubleArray()
 
 
-     //   testarray(pie, 10)
+       var cuSn = IntArray(pi.size)
+       var counter = 0
+       pi.forEach {
+           cuSn[counter] = BinomialDistribution(1, 1/it).sample().toInt()
+           counter += 1
+       }
 
-//        val pi = pie.filter { it.isFinite() }
-     //   val pi = pie
-
-//       var cuSn = IntArray(pi.size)
-//       counter = 0
-//       pi.forEach {
-//           cuSn[counter] = BinomialDistribution(1, 1 / it).sample()
-//           cuSn[counter] = BinomialDistribution(1, it).sample()
-//       counter =+1
-//       }
+        val cuNn = cuSn.map{ abs(it-1)}
 
 //        cuNn = cuSn.forEach { not(it) }
-//        Ns = cuSn.sum()
-//        Nn = cuNn.sum()
+        val Ns = cuSn.sum()
+        val Nn = cuNn.sum()
 
+        // While loop
+  //      Xs = X[np.where(cuS)]
+  //      Xn = X[np.where(cuN)]
+        data1.Ms[I] = cms
+        data1.Mn[I] = cmn
+        data1.Ls[I] = cls
+        data1.Ln[I] = cln
+        data1.Pr[I] = cp
+        data1.Id += cuS
     }
 
-return 0.0
+
+return data1
+}
+
+data class Biggs(val name: String, val M: Int){
+    var Ms = DoubleArray(M)
+    var Mn = DoubleArray(M)
+    var Ls = DoubleArray(M)
+    var Ln = DoubleArray(M)
+    var Pr = DoubleArray(M)
+    var Id = DoubleArray(M)
 }
 
 fun main() {
@@ -262,13 +253,5 @@ fun main() {
 //    val ter =testnprec(testdata,out)
 
     val hold = McMix(MM,testdata, prms, prmn,prl,prl,prp)
-
-//    testbino()
-//    print(out.first)
-//    print("    ")
-//    println(out.second)
-
-//    print(ter.first)
-//    print("  ")
-//    println(ter.second)
+    testarray(hold.Ms, 5)
 }
