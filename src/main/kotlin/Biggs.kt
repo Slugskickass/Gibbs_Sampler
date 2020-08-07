@@ -10,6 +10,8 @@ import org.apache.commons.math3.stat.StatUtils
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
 import kotlin.math.sqrt
 import kotlin.math.exp
+import kotlin.math.round
+
 
 fun nmean(Ds: DoubleArray, Dn: DoubleArray, cls: Double, cln: Double, ns: Int, nn: Int, pms: Pair<Int, Int>, pmn: Pair<Int, Int>): Pair<Double, Double> {
     //p1 = pmn[1] + cln * nn
@@ -18,7 +20,6 @@ fun nmean(Ds: DoubleArray, Dn: DoubleArray, cls: Double, cln: Double, ns: Int, n
     var m1 = (pmn.first * pmn.second + cln * Dn.sum()) / p1
     //mn = m1 + np.random.standard_normal(1) / np.sqrt(p1)
     val mn = m1 + ( NormalDistribution().sample() / sqrt(p1))
-
 
 
     //p1 = pms[1] + cls * ns
@@ -84,7 +85,7 @@ fun nprec(Ds: DoubleArray, Dn: DoubleArray, cms: Double, cmn: Double, ns: Int, n
 
     val las = GammaDistribution(a1, 1 / b1).sample()
 
-    return Pair(lan, las)
+    return Pair(las, lan)
 }
 
 fun testnprec(data: DoubleArray, out: Pair<Double,Double>, ): Pair<Double, Double> {
@@ -151,6 +152,14 @@ fun generatetestdata(points: Int, pp: Double, mus: Int, las: Double, mun: Int, l
     return XX
 }
 
+fun testarray(arraysee: DoubleArray, times: Int){
+    for (i in 0 until times) {
+        print(arraysee[i])
+        print(' ')
+    }
+    println()
+}
+
 fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn:Pair<Int, Int>, pls: Pair<Double, Double>, pln: Pair<Double, Double>, pp: Pair<Double, Double>): Double {
     val N = X.size
     var Ms = DoubleArray(N)
@@ -168,11 +177,11 @@ fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn:Pair<Int, Int>, pls: 
     val Ns = cuS.size
     val Nn = cuN.size
 
-    val cms = StatUtils.mean(cuS)
-    val cmn = StatUtils.mean(cuN)
+    var cms = StatUtils.mean(cuS)
+    var cmn = StatUtils.mean(cuN)
 
-    val cls = 1 / StatUtils.variance(cuS)
-    val cln = 1 / StatUtils.variance(cuN)
+    var cls = 1 / StatUtils.variance(cuS)
+    var cln = 1 / StatUtils.variance(cuN)
 
     val cPG = BetaDistribution(Ns + pp.first, Nn + pp.second)
 
@@ -181,34 +190,53 @@ fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn:Pair<Int, Int>, pls: 
 
         val cp = cPG.sample()
         val CD = nmean(cuS, cuN, cls, cln, Ns, Nn, pms, pmn)
+        cms = CD.first
+        cmn = CD.second
         val CL = nprec(cuS, cuN, cms, cmn, Ns, Nn, pls, pln)
+        cls = CL.first
+        cln = CL.second
 
         val aux1 = gauspdf(X, cms, cls)
         val aux2 = gauspdf(X, cmn, cln)
         var aux = aux1.zip(aux2).map {it.first-it.second }.toDoubleArray()
 
 
- //       val pi = 1 + ((1 - cp) / cp * exp(aux))
+//        val pi = 1 + ((1 - cp) / cp * exp(aux))
+//            pi = 1 + ((1 - cP) / cP * np.exp(aux))
+
+        val testera = aux.filter { it > 4000 }
+ //       println(testera.size)
+   //     testarray(aux, 10)
 
         var pie =DoubleArray(aux.size)
         var counter = 0
-        aux.forEach {pie[counter] = 1 + ((1 - cp) / cp * exp(it))
+        //aux.forEach {pie[counter] = 1 + ((1 - cp) / (cp * exp(it)))
+        aux.forEach {pie[counter] = exp(it)
             counter =+1
+            if (it > 4000){
+                println(it)
+                println(exp(it))
+            }
         }
 
+        pie.forEach { if (it.isInfinite()){print('I')} }
 
-        val pi = pie.filter { it.isFinite() }
+        val testerp = pie.filter { it.isInfinite() }
+        println(testerp.size)
 
 
-       var cuSn = IntArray(pi.size)
-       counter = 0
-       pi.forEach {
+     //   testarray(pie, 10)
+
+//        val pi = pie.filter { it.isFinite() }
+     //   val pi = pie
+
+//       var cuSn = IntArray(pi.size)
+//       counter = 0
+//       pi.forEach {
 //           cuSn[counter] = BinomialDistribution(1, 1 / it).sample()
-           cuSn[counter] = BinomialDistribution(1, it).sample()
-       counter =+1
-       }
-
-        cuSn.forEach { println(it) }
+//           cuSn[counter] = BinomialDistribution(1, it).sample()
+//       counter =+1
+//       }
 
 //        cuNn = cuSn.forEach { not(it) }
 //        Ns = cuSn.sum()
@@ -219,20 +247,28 @@ fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn:Pair<Int, Int>, pls: 
 return 0.0
 }
 
-
-
 fun main() {
 // Generate some test data
     val testdata  = generatetestdata(2000, 0.1, 1200, 0.005, 800, 0.01)
 //
-    val MM = 5                                         // Loops
-    val nn = 2000                                      // Points
-    val prms = Pair(1500, 10)              // Mean signal
+    val MM = 5                                           // Loops
+    val nn = 2000                                       // Points
+    val prms = Pair(1500, 10)               // Mean signal
     val prmn = Pair(500, 1)                // mean noise
     val prl = Pair(2.0, 0.6)        // Precisson
-    val prp = Pair(0.5, 0.5)        // Precisson
+    val prp = Pair(0.5, 0.5)       // Precisson
 
-    val out = testmean(testdata, prms, prmn)
-    val ter =testnprec(testdata,out)
+//    val out = testmean(testdata, prms, prmn)
+//    val ter =testnprec(testdata,out)
 
+    val hold = McMix(MM,testdata, prms, prmn,prl,prl,prp)
+
+//    testbino()
+//    print(out.first)
+//    print("    ")
+//    println(out.second)
+
+//    print(ter.first)
+//    print("  ")
+//    println(ter.second)
 }
