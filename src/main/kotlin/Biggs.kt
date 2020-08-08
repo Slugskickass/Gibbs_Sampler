@@ -5,7 +5,8 @@ import org.apache.commons.math3.distribution.GammaDistribution
 import org.apache.commons.math3.stat.StatUtils
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
 import kotlin.math.*
-
+import tornadofx.*
+import javafx.application.Application
 
 fun nmean(Ds: DoubleArray, Dn: DoubleArray, cls: Double, cln: Double, ns: Int, nn: Int, pms: Pair<Int, Int>, pmn: Pair<Int, Int>): Pair<Double, Double> {
     //p1 = pmn[1] + cln * nn
@@ -238,7 +239,19 @@ data class Biggs(val name: String, val M: Int){
     var Id = DoubleArray(M)
 }
 
+class MyApp: App(MyView::class)
+
+class MyView: View() {
+    override val root = vbox {
+        button("Press me")
+        label("Waiting")
+    }
+}
+
+
+
 fun main() {
+
 // Generate some test data
     val testdata  = generatetestdata(2000, 0.1, 1200, 0.005, 800, 0.01)
 //
@@ -254,4 +267,6 @@ fun main() {
 
     val hold = McMix(MM,testdata, prms, prmn,prl,prl,prp)
     testarray(hold.Ms, 5)
+    launch<MyApp>()
+
 }

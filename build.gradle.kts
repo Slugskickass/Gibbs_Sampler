@@ -19,6 +19,7 @@ dependencies {
     implementation("org.apache.commons:commons-csv:1.7")
     api("scientifik:kmath-core:${"0.1.3"}")
     implementation("org.apache.commons:commons-math3:3.6.1")
+    implementation("no.tornado:tornadofx:1.7.20")
 }
 tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "1.8"
