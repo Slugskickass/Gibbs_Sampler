@@ -6,9 +6,8 @@ import org.apache.commons.math3.stat.StatUtils
 import org.apache.commons.math3.stat.descriptive.rank.Percentile
 import kotlin.math.*
 import tornadofx.*
-import javafx.application.Application
 
-fun nmean(Ds: DoubleArray, Dn: DoubleArray, cls: Double, cln: Double, ns: Int, nn: Int, pms: Pair<Int, Int>, pmn: Pair<Int, Int>): Pair<Double, Double> {
+fun nmean(Ds: DoubleArray, Dn: DoubleArray, cls: Double, cln: Double, ns: Int, nn: Int, pms: Pair<Double, Double>, pmn: Pair<Double, Double>): Pair<Double, Double> {
     //p1 = pmn[1] + cln * nn
     var p1 = pmn.second + cln * nn
     //m1 = (pmn[0] * pmn[1] + cln * np.sum(Dn)) / p1
@@ -27,7 +26,7 @@ fun nmean(Ds: DoubleArray, Dn: DoubleArray, cls: Double, cln: Double, ns: Int, n
     return Pair(ms,mn)
 }
 
-fun testmean(data: DoubleArray, prms: Pair<Int,Int>, prmn: Pair<Int,Int>): Pair<Double, Double> {
+fun testmean(data: DoubleArray, prms: Pair<Double,Double>, prmn: Pair<Double,Double>): Pair<Double, Double> {
     val percent = definePercentile(75.0)
     val threshold = percent.evaluate(data)
 
@@ -87,13 +86,8 @@ fun testnprec(data: DoubleArray, out: Pair<Double,Double>, ): Pair<Double, Doubl
 }
 
 fun gauspdf(x: DoubleArray, m: Double, l: Double): DoubleArray {
-    var counter: Int =0
-    var output = DoubleArray(x.size)
-    x.forEach {
-        output[counter] = 0.5 * (ln(l) - ln(2 * 3.1415) - (it - m).pow(2))
-        counter += 1
-    }
-    return output
+    var output = x.map { 0.5 * (ln(l) - ln(2 * 3.1415) - (it - m).pow(2)) }
+    return output.toDoubleArray()
 }
 
 fun playBinomialDistribution(trails: Int, p: Double, runs: Int): DoubleArray {
@@ -139,7 +133,7 @@ fun testarray(arraysee: DoubleArray, times: Int){
     println()
 }
 
-fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn: Pair<Int, Int>, pls: Pair<Double, Double>, pln: Pair<Double, Double>, pp: Pair<Double, Double>): Biggs {
+fun McMix(M: Int, X: DoubleArray, pms: Pair<Double, Double>, pmn: Pair<Double, Double>, pls: Pair<Double, Double>, pln: Pair<Double, Double>, pp: Pair<Double, Double>): Biggs {
     val N =M
     val data1 = Biggs("Miguel", N)
     var Ms = DoubleArray(N)
@@ -147,8 +141,8 @@ fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn: Pair<Int, Int>, pls:
     var Ls = DoubleArray(N)
     var Ln = DoubleArray(N)
     var Pr = DoubleArray(N)
-    var Id = DoubleArray(N)
-    val percent = definePercentile(75.0)
+    var Id = DoubleArray(X.size)
+    val percent = definePercentile(95.0)
     val threshold = percent.evaluate(X)
 
     val cuS = X.filter { it >= threshold }.toDoubleArray()
@@ -179,23 +173,12 @@ fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn: Pair<Int, Int>, pls:
         val aux1 = gauspdf(X, cms, cls)
         val aux2 = gauspdf(X, cmn, cln)
         var aux = aux1.zip(aux2).map {it.first-it.second }.toDoubleArray()
-
-
-//        val pi = 1 + ((1 - cp) / cp * exp(aux))
-
         val pi = aux.map { 1 + ((1 - cp) / (cp * exp(it))) }.toDoubleArray()
 
 
-       var cuSn = IntArray(pi.size)
-       var counter = 0
-       pi.forEach {
-           cuSn[counter] = BinomialDistribution(1, 1/it).sample().toInt()
-           counter += 1
-       }
-
+        var cuSn = pi.map { BinomialDistribution(1, 1/it).sample().toInt() }
         val cuNn = cuSn.map{ abs(it-1)}
 
-//        cuNn = cuSn.forEach { not(it) }
         val Ns = cuSn.sum()
         val Nn = cuNn.sum()
 
@@ -225,16 +208,16 @@ data class Biggs(val name: String, val M: Int){
 
 class MyApp: App(MyView::class)
 
-
 fun main() {
 
 // Generate some test data
     val testdata  = generatetestdata(2000, 0.1, 1200, 0.005, 800, 0.01)
 //
     val MM = 50                                           // Loops
-    val nn = 2000                                       // Points
-    val prms = Pair(1500, 10)               // Mean signal
-    val prmn = Pair(500, 1)                // mean noise
+//    val prms = Pair(1500, 10)               // Mean signal
+//    val prmn = Pair(500, 1)                // mean noise
+    val prms = Pair(definePercentile(75.0).evaluate(testdata), 0.1)               // Mean signal
+    val prmn = Pair(definePercentile(25.0).evaluate(testdata), 0.1)                  // mean noise
     val prl = Pair(2.0, 0.6)        // Precisson
     val prp = Pair(0.5, 0.5)       // Precisson
 
