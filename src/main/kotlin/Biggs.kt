@@ -51,33 +51,17 @@ fun nprec(Ds: DoubleArray, Dn: DoubleArray, cms: Double, cmn: Double, ns: Int, n
     //a1 = nn / 2 + pln[0]
     var a1 = nn / 2 + pln.first
     //b1 = np.sum(np.square(Dn - cmn * np.ones(nn))) / 2 + pln[1]
-    var counter = 0
-    var b1a = DoubleArray(Dn.size)
-    Dn.forEach {
-        b1a[counter] = (it - cmn).pow(2)
-        counter += 1
-    }
+    var b1a = Dn.map{(it - cmn).pow(2)}
     var b1 = b1a.sum() / (2 + pln.second)
     //lan = np.random.gamma(shape=a1, scale=1 / b1)
     val lan = GammaDistribution(a1, 1/b1).sample()
 
 
 
-
-
     a1 = ns / 2 + pls.first
-
     //b1 = np.sum(np.square(Ds - cms * np.ones(ns))) / 2 + pls[1]
-    counter = 0
-    b1a = DoubleArray(Dn.size)
-    Ds.forEach {
-        b1a[counter] = (it - cms).pow(2)
-        counter  += 1
-    }
-
-
-    b1 = b1a.sum() / (2 + pls.second)
-
+    val b1b = Ds.map{(it - cms).pow(2)}
+    b1 = b1b.sum() / (2 + pls.second)
     val las = GammaDistribution(a1, 1 / b1).sample()
 
     return Pair(las, lan)
@@ -156,7 +140,7 @@ fun testarray(arraysee: DoubleArray, times: Int){
 }
 
 fun McMix(M: Int, X: DoubleArray, pms: Pair<Int, Int>, pmn: Pair<Int, Int>, pls: Pair<Double, Double>, pln: Pair<Double, Double>, pp: Pair<Double, Double>): Biggs {
-    val N = X.size
+    val N =M
     val data1 = Biggs("Miguel", N)
     var Ms = DoubleArray(N)
     var Mn = DoubleArray(N)
@@ -241,21 +225,13 @@ data class Biggs(val name: String, val M: Int){
 
 class MyApp: App(MyView::class)
 
-class MyView: View() {
-    override val root = vbox {
-        button("Press me")
-        label("Waiting")
-    }
-}
-
-
 
 fun main() {
 
 // Generate some test data
     val testdata  = generatetestdata(2000, 0.1, 1200, 0.005, 800, 0.01)
 //
-    val MM = 5                                           // Loops
+    val MM = 50                                           // Loops
     val nn = 2000                                       // Points
     val prms = Pair(1500, 10)               // Mean signal
     val prmn = Pair(500, 1)                // mean noise
@@ -266,7 +242,7 @@ fun main() {
 //    val ter =testnprec(testdata,out)
 
     val hold = McMix(MM,testdata, prms, prmn,prl,prl,prp)
-    testarray(hold.Ms, 5)
-    launch<MyApp>()
+    testarray(hold.Ms, MM)
+//    launch<MyApp>()
 
 }
