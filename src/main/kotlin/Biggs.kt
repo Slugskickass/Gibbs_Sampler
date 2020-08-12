@@ -7,43 +7,30 @@ import org.apache.commons.math3.stat.descriptive.rank.Percentile
 import kotlin.math.*
 import tornadofx.*
 
-fun nmean(Ds: DoubleArray, Dn: DoubleArray, cls: Double, cln: Double, ns: Int, nn: Int, pms: Pair<Double, Double>, pmn: Pair<Double, Double>): Pair<Double, Double> {
-    //p1 = pmn[1] + cln * nn
-    var p1 = pmn.second + cln * nn
-    //m1 = (pmn[0] * pmn[1] + cln * np.sum(Dn)) / p1
-    var m1 = (pmn.first * pmn.second + cln * Dn.sum()) / p1
-    //mn = m1 + np.random.standard_normal(1) / np.sqrt(p1)
-    val mn = m1 + ( NormalDistribution().sample() / sqrt(p1))
+// TODO: Make Compile
+// TODO: newMeans data class
+// TODO: newMeans extract function
+// TODO: more data classes (variance / precision)
 
+fun newMeans(signalSamples: DoubleArray, noiseSamples: DoubleArray, signalPrior: Prior, noisePrior: Prior): Pair<Double, Double> {
+    val signalPrecision = 1.0 / StatUtils.variance(signalSamples)
+    val noisePrecision = 1.0 / StatUtils.variance(noiseSamples)
 
-    //p1 = pms[1] + cls * ns
-    p1 = pms.second + cls * ns
-    //m1 = (pms[0] * pms[1] + cls * np.sum(Ds)) / p1
-    m1 = (pms.first * pms.second + cls * Ds.sum()) / p1
-    //ms = m1 + np.random.standard_normal(1) / np.sqrt(p1)
-    val ms = m1 + ( NormalDistribution().sample() / sqrt(p1))
+    val updatedNoisePrecision =
+        noisePrior.precision + noisePrecision * noiseSamples.size
+    val updatedNoiseMean =
+        (noisePrior.mean * noisePrior.precision + noisePrecision * noiseSamples.sum()) / updatedNoisePrecision
+    val noiseMean =
+        NormalDistribution(updatedNoiseMean, 1.0 / sqrt(updatedNoisePrecision)).sample()
 
-    return Pair(ms,mn)
-}
+    val updatedSignalPrecision =
+        signalPrior.precision + signalPrecision * signalSamples.size
+    val updatedSignalMean =
+        (signalPrior.mean * signalPrior.precision + signalPrecision * signalSamples.sum()) / updatedSignalPrecision
+    val sampleMean =
+        NormalDistribution(updatedSignalMean, 1.0 / sqrt(updatedSignalPrecision)).sample()
 
-fun testmean(data: DoubleArray, prms: Pair<Double,Double>, prmn: Pair<Double,Double>): Pair<Double, Double> {
-    val percent = definePercentile(75.0)
-    val threshold = percent.evaluate(data)
-
-    val cuS = data.filter { it >= threshold }.toDoubleArray()
-    val cuN = data.filter { it < threshold }.toDoubleArray()
-
-    val cls = 1 / StatUtils.variance(cuS)
-    val cln = 1 / StatUtils.variance(cuN)
-
-    val Ns = cuS.size
-    val Nn = cuN.size
-
-    val outdata = nmean(cuS, cuN, cls, cln, Ns, Nn, prms, prmn)
-    //println(outdata.first)
-    //println(outdata.second)
-
-    return outdata
+    return Pair(max(noiseMean, sampleMean), min(noiseMean, sampleMean))
 }
 
 fun nprec(Ds: DoubleArray, Dn: DoubleArray, cms: Double, cmn: Double, ns: Int, nn: Int, pls: Pair<Double, Double>, pln: Pair<Double, Double>): Pair<Double, Double> {
@@ -64,25 +51,6 @@ fun nprec(Ds: DoubleArray, Dn: DoubleArray, cms: Double, cmn: Double, ns: Int, n
     val las = GammaDistribution(a1, 1 / b1).sample()
 
     return Pair(las, lan)
-}
-
-fun testnprec(data: DoubleArray, out: Pair<Double,Double>, ): Pair<Double, Double> {
-
-    val percent = definePercentile(75.0)
-    val threshold = percent.evaluate(data)
-    val cuS = data.filter { it >= threshold }.toDoubleArray()
-    val cuN = data.filter { it < threshold }.toDoubleArray()
-
-    val cls = 1 / StatUtils.variance(cuS)
-    val cln = 1 / StatUtils.variance(cuN)
-
-    val Ns = cuS.size
-    val Nn = cuN.size
-
-    val prp = Pair(0.5, 0.5)
-
-    val ter =nprec(cuS, cuN, out.first, out.second, Ns, Nn,prp, prp)
-    return ter
 }
 
 fun gauspdf(x: DoubleArray, m: Double, l: Double): DoubleArray {
@@ -133,39 +101,56 @@ fun testarray(arraysee: DoubleArray, times: Int){
     println()
 }
 
-fun McMix(M: Int, X: DoubleArray, pms: Pair<Double, Double>, pmn: Pair<Double, Double>, pls: Pair<Double, Double>, pln: Pair<Double, Double>, pp: Pair<Double, Double>): Biggs {
-    val N =M
-    val data1 = Biggs("Miguel", N)
-    var Ms = DoubleArray(N)
-    var Mn = DoubleArray(N)
-    var Ls = DoubleArray(N)
-    var Ln = DoubleArray(N)
-    var Pr = DoubleArray(N)
-    var Id = DoubleArray(X.size)
-    val percent = definePercentile(95.0)
-    val threshold = percent.evaluate(X)
+data class Probability(val p : Double) {
+    init { assert(p in 0.0..1.0) }
 
-    val cuS = X.filter { it >= threshold }.toDoubleArray()
-    val cuN = X.filter { it < threshold }.toDoubleArray()
+    val np get() = 1.0 - p
+}
 
-    val Ns = cuS.size
-    val Nn = cuN.size
+data class Prior(val mean : Double, val precision : Double)
 
-    var cms = StatUtils.mean(cuS)
-    var cmn = StatUtils.mean(cuN)
+data class McMixConfig(
+    val numberOfIterations : Int,
+    val thresholdPercentile : Percentile,
+    val initialGuess : Probability,
+    val signalPrior : Prior,
+    val noisePrior : Prior
+) {
+    constructor(
+        numberOfIterations : Int,
+        thresholdPercentile : Percentile,
+        initialGuess : Probability,
+        data : DoubleArray,
+        signalPriorPercentile : Percentile = definePercentile(75.0),
+        signalPriorPrecision : Double = 0.1,
+        noisePriorPercentile : Percentile = definePercentile(25.0),
+        noisePriorPrecision : Double = 0.1,
+    ) : this (
+        numberOfIterations,
+        thresholdPercentile,
+        initialGuess,
+        Prior(signalPriorPercentile.evaluate(data), signalPriorPrecision),
+        Prior(noisePriorPercentile.evaluate(data), noisePriorPrecision)
+    )
+}
 
-    var cls = 1 / StatUtils.variance(cuS)
-    var cln = 1 / StatUtils.variance(cuN)
+fun runMcMix(config : McMixConfig, input : DoubleArray) : Biggs {
+    val output = Biggs("Miguel", config.numberOfIterations)
+    val threshold = config.thresholdPercentile.evaluate(input)
 
-    val cPG = BetaDistribution(Ns + pp.first, Nn + pp.second)
+    val geqThreshold = input.filter { it >= threshold }.toDoubleArray()
+    val ltThreshold = input.filter { it < threshold }.toDoubleArray()
 
+    val betaDistribution = BetaDistribution(
+        geqThreshold.size + config.initialGuess.p,
+        ltThreshold.size + config.initialGuess.np
+    )
 
-    for (I in 0 until M) {
-
-        val cp = cPG.sample()
-        val CD = nmean(cuS, cuN, cls, cln, Ns, Nn, pms, pmn)
-        cms = CD.first
-        cmn = CD.second
+    for (I in 0 until config.numberOfIterations) {
+        val betaSample = betaDistribution.sample()
+        val CD = newMeans(geqThreshold, ltThreshold, config.signalPrior, config.noisePrior)
+        val cms = CD.first
+        val cmn = CD.second
         val CL = nprec(cuS, cuN, cms, cmn, Ns, Nn, pls, pln)
         cls = CL.first
         cln = CL.second
@@ -173,37 +158,65 @@ fun McMix(M: Int, X: DoubleArray, pms: Pair<Double, Double>, pmn: Pair<Double, D
         val aux1 = gauspdf(X, cms, cls)
         val aux2 = gauspdf(X, cmn, cln)
         var aux = aux1.zip(aux2).map {it.first-it.second }.toDoubleArray()
-        val pi = aux.map { 1 + ((1 - cp) / (cp * exp(it))) }.toDoubleArray()
+        val pi = aux.map { 1 + ((1 - betaSample) / (betaSample * exp(it))) }.toDoubleArray()
 
 
-        var cuSn = pi.map { BinomialDistribution(1, 1/it).sample().toInt() }
-        val cuNn = cuSn.map{ abs(it-1)}
+        var cuS = pi.map { BinomialDistribution(1, 1/it).sample().toInt() }
+        val cuN = cuS.map{ abs(it-1)}
 
-        val Ns = cuSn.sum()
-        val Nn = cuNn.sum()
+        val Ns = cuS.sum()
+        val Nn = cuN.sum()
 
         // While loop
-  //      Xs = X[np.where(cuS)]
-  //      Xn = X[np.where(cuN)]
-        data1.Ms[I] = cms
-        data1.Mn[I] = cmn
-        data1.Ls[I] = cls
-        data1.Ln[I] = cln
-        data1.Pr[I] = cp
-        data1.Id += cuS
+        //      Xs = X[np.where(cuS)]
+        //      Xn = X[np.where(cuN)]
+        output.meanSignal[I] = cms
+        output.meanNoise[I] = cmn
+        output.signalVariance[I] = cls
+        output.noiseVariance[I] = cln
+        output.precision[I] = betaSample
+        //      data1.Id += cuS
+        for (i in 0 until output.pSignal.size) {
+            output.pSignal[i] = cuS[i].toDouble() + output.pSignal[i]
+        }
     }
 
 
-return data1
+    return output
 }
 
-data class Biggs(val name: String, val M: Int){
-    var Ms = DoubleArray(M)
-    var Mn = DoubleArray(M)
-    var Ls = DoubleArray(M)
-    var Ln = DoubleArray(M)
-    var Pr = DoubleArray(M)
-    var Id = DoubleArray(M)
+fun McMix(M: Int, X: DoubleArray, pms: Pair<Double, Double>, pmn: Pair<Double, Double>, pls: Pair<Double, Double>, pln: Pair<Double, Double>, pp: Pair<Double, Double>): Biggs {
+    val N = M
+    var Ms = DoubleArray(N)
+    var Mn = DoubleArray(N)
+    var Ls = DoubleArray(N)
+    var Ln = DoubleArray(N)
+    var Pr = DoubleArray(N)
+    var Id = DoubleArray(X.size)
+    val threshold = definePercentile(95.0).evaluate(X)
+
+    val cuS = X.filter { it >= threshold }.toDoubleArray()
+    val cuN = X.filter { it < threshold }.toDoubleArray()
+
+    val Ns = cuS.size
+    val Nn = cuN.size
+
+//    var cms = StatUtils.mean(cuS)
+//    var cmn = StatUtils.mean(cuN)
+
+    var cls = 1 / StatUtils.variance(cuS)
+    var cln = 1 / StatUtils.variance(cuN)
+
+    val cPG = BetaDistribution(Ns + pp.first, Nn + pp.second)
+}
+
+data class Biggs(val name: String, val M: Int) {
+    var meanSignal = DoubleArray(M)
+    var meanNoise = DoubleArray(M)
+    var signalVariance = DoubleArray(M)
+    var noiseVariance = DoubleArray(M)
+    var precision = DoubleArray(M)
+    var pSignal = DoubleArray(M)
 }
 
 class MyApp: App(MyView::class)
@@ -211,11 +224,9 @@ class MyApp: App(MyView::class)
 fun main() {
 
 // Generate some test data
-    val testdata  = generatetestdata(2000, 0.1, 1200, 0.005, 800, 0.01)
-//
-    val MM = 50                                           // Loops
-//    val prms = Pair(1500, 10)               // Mean signal
-//    val prmn = Pair(500, 1)                // mean noise
+    val testdata  = generatetestdata(2000, 0.3, 1500, 0.1, 500, 0.05)
+
+    val MM = 200                                           // Loops
     val prms = Pair(definePercentile(75.0).evaluate(testdata), 0.1)               // Mean signal
     val prmn = Pair(definePercentile(25.0).evaluate(testdata), 0.1)                  // mean noise
     val prl = Pair(2.0, 0.6)        // Precisson
@@ -225,7 +236,8 @@ fun main() {
 //    val ter =testnprec(testdata,out)
 
     val hold = McMix(MM,testdata, prms, prmn,prl,prl,prp)
-    testarray(hold.Ms, MM)
-//    launch<MyApp>()
 
+    println(hold.meanSignal[MM-1])
+    println(hold.meanNoise[MM-1])
+    testarray(hold.pSignal, 30)
 }
